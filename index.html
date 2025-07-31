@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" class="">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weather App</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
+  <style>
+    /* Weather animations */
+    .rain::before {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.3),
+        rgba(255, 255, 255, 0.3) 2px,
+        transparent 2px,
+        transparent 10px
+      );
+      animation: rain 0.4s linear infinite;
+      z-index: -1;
+    }
+
+    @keyframes rain {
+      from { background-position: 0 0; }
+      to { background-position: 0 100%; }
+    }
+
+    .cloudy::before {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url('https://i.imgur.com/qkdpN.jpg') repeat;
+      opacity: 0.1;
+      animation: moveClouds 60s linear infinite;
+      z-index: -1;
+    }
+
+    @keyframes moveClouds {
+      0% { background-position: 0 0; }
+      100% { background-position: 1000px 0; }
+    }
+
+    .snow::before {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url('https://i.imgur.com/SRk2Kxw.png') repeat;
+      animation: snow 20s linear infinite;
+      z-index: -1;
+    }
+
+    @keyframes snow {
+      0% { background-position: 0 -1000px; }
+      100% { background-position: 0 1000px; }
+    }
+  </style>
+</head>
+<body class="transition-all duration-500 bg-gradient-to-br from-blue-400 to-purple-500 dark:from-gray-900 dark:to-gray-800 min-h-screen flex items-center justify-center px-4">
+
+  <!-- Dark mode toggle switch -->
+  <div class="absolute top-5 right-5 flex items-center gap-2">
+    <label class="text-white dark:text-yellow-300 font-semibold">Dark Mode</label>
+    <input id="darkToggle" type="checkbox" class="toggle-checkbox hidden" onchange="toggleDarkMode()" />
+    <label for="darkToggle" class="toggle-label block w-12 h-6 rounded-full shadow-inner bg-gray-300 dark:bg-gray-600 cursor-pointer relative">
+      <span class="toggle-dot absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition transform"></span>
+    </label>
+  </div>
+
+  <!-- Main Container -->
+  <div class="max-w-4xl w-full relative z-10">
+    <div class="text-center mb-6">
+      <h1 class="text-4xl font-bold text-white dark:text-yellow-300">🌤 Weather App</h1>
+      <div class="mt-4 flex flex-col sm:flex-row justify-center gap-3">
+        <input id="locationInput" type="text" placeholder="Enter city name..." class="rounded-lg px-4 py-2 w-full sm:w-64 focus:outline-none" />
+        <button onclick="getWeather()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">Search</button>
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center text-gray-900 dark:text-gray-100">
+      <h2 id="location" class="text-2xl font-semibold mb-2">Location</h2>
+      <div class="flex items-center justify-center gap-4 mb-4">
+        <img id="icon" src="" alt="Weather Icon" class="w-12 h-12" />
+        <span id="temperature" class="text-4xl font-bold">--°C</span>
+      </div>
+      <p id="condition" class="mb-4">Condition</p>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+        <div class="bg-blue-50 dark:bg-blue-900 p-3 rounded-lg">💧 Humidity: <span id="humidity">--%</span></div>
+        <div class="bg-green-50 dark:bg-green-900 p-3 rounded-lg">💨 Wind: <span id="wind">-- km/h</span></div>
+        <div class="bg-pink-50 dark:bg-pink-900 p-3 rounded-lg">🌡 Pressure: <span id="pressure">-- hPa</span></div>
+        <div class="bg-yellow-50 dark:bg-yellow-900 p-3 rounded-lg">🔍 Visibility: <span id="visibility">-- km</span></div>
+      </div>
+    </div>
+
+    <div id="forecastContainer" class="mt-6 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg text-gray-900 dark:text-gray-100">
+      <h3 class="text-xl font-semibold mb-4">📅 4-Day Forecast</h3>
+      <div id="forecast" class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center text-sm"></div>
+    </div>
+  </div>
+
+  <script>
+    const apiKey = '51190701fae842d7b2550646253007';
+
+    // DARK MODE TOGGLE
+    function toggleDarkMode() {
+      const html = document.documentElement;
+      const isDark = html.classList.toggle('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      updateToggleSwitch(isDark);
+    }
+
+    function updateToggleSwitch(isDark) {
+      document.getElementById('darkToggle').checked = isDark;
+    }
+
+    function loadTheme() {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'dark') {
+        document.documentElement.classList.add('dark');
+        updateToggleSwitch(true);
+      } else {
+        updateToggleSwitch(false);
+      }
+    }
+
+    function setWeatherEffect(conditionText) {
+      document.body.classList.remove('rain', 'cloudy', 'snow');
+      const text = conditionText.toLowerCase();
+      if (text.includes('rain')) document.body.classList.add('rain');
+      else if (text.includes('cloud')) document.body.classList.add('cloudy');
+      else if (text.includes('snow')) document.body.classList.add('snow');
+    }
+
+    function getWeather() {
+      const location = document.getElementById('locationInput').value;
+      if (!location) return alert("Please enter a city name");
+
+      const url = `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${location}&days=5&aqi=no&alerts=no`;
+
+      fetch(url)
+        .then(res => res.json())
+        .then(data => {
+          if (data.error) return alert(data.error.message);
+
+          const current = data.current;
+          document.getElementById('location').innerText = `${data.location.name}, ${data.location.country}`;
+          document.getElementById('temperature').innerText = `${current.temp_c}°C`;
+          document.getElementById('condition').innerText = current.condition.text;
+          document.getElementById('icon').src = current.condition.icon;
+          document.getElementById('humidity').innerText = `${current.humidity}%`;
+          document.getElementById('wind').innerText = `${current.wind_kph} km/h`;
+          document.getElementById('pressure').innerText = `${current.pressure_mb} hPa`;
+          document.getElementById('visibility').innerText = `${current.vis_km} km`;
+
+          // Forecast
+          const forecastHTML = data.forecast.forecastday.slice(1).map(day => `
+            <div class="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
+              <p class="font-semibold">${new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</p>
+              <img src="${day.day.condition.icon}" alt="icon" class="mx-auto w-10 h-10" />
+              <p>${day.day.condition.text}</p>
+              <p>🌡 ${day.day.maxtemp_c}° / ${day.day.mintemp_c}°</p>
+            </div>`).join("");
+
+          document.getElementById('forecast').innerHTML = forecastHTML;
+
+          // Weather effect
+          setWeatherEffect(current.condition.text);
+        })
+        .catch(err => alert("Failed to fetch weather data."));
+    }
+
+    // Init theme
+    loadTheme();
+  </script>
+</body>
+</html>
